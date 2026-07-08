@@ -1,0 +1,12 @@
+Metadata-Version: 2.4
+Name: mhc_pre_cmhc
+Version: 1.0.0
+Summary: MHC (Multi-Head Composition) AscendC kernel operator
+Author: Huawei Technologies Co., Ltd.
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Programming Language :: Python :: 3
+Requires-Python: >=3.9
+Dynamic: author
+Dynamic: classifier
+Dynamic: requires-python
+Dynamic: summary

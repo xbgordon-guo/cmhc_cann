@@ -1,0 +1,13 @@
+MANIFEST.in
+pyproject.toml
+setup.py
+mhc_pre_cmhc/__init__.py
+mhc_pre_cmhc/compare_precision.py
+mhc_pre_cmhc/mhc_pre_cmhc_torch_ops.cpython-311-x86_64-linux-gnu.so
+mhc_pre_cmhc/mhc_pre_sinkhorn.json
+mhc_pre_cmhc/model.py
+mhc_pre_cmhc/model_new_ascendc.py
+mhc_pre_cmhc.egg-info/PKG-INFO
+mhc_pre_cmhc.egg-info/SOURCES.txt
+mhc_pre_cmhc.egg-info/dependency_links.txt
+mhc_pre_cmhc.egg-info/top_level.txt

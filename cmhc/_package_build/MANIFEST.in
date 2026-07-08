@@ -1,0 +1,3 @@
+recursive-include mhc_pre_cmhc *.so
+recursive-include mhc_pre_cmhc *.json
+include mhc_pre_cmhc/*.py
