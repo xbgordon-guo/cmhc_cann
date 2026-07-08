@@ -15,9 +15,14 @@ Formula:
   6. H_post = r_inv * H[:, :, N:2N]         * alpha[1] + bias[N:2N]        → 2*sigmoid
   7. H_res  = r_inv * H[:, :, 2N:2N+n!]    * alpha[2] + bias[2N:2N+n!]    → softmax
      res_coeff = softmax(H_res, dim=-1)           # (B, S, n!)
-     perms = get_permutation_matrices(N)          # (n!, N, N)
+     perms = _get_permutations(dtype)              # (n!, N, N), gamma-blended
      H_res = einsum('bsr,rij->bsij', res_coeff, perms)  # (B, S, N, N)
   8. h_in = sum_n(x_streams[n] * H_pre[n])       # (B, S, C)
+
+Gamma blending (Birkhoff-von Neumann):
+    perm_mats = cmhc_gamma * P_p + (1 - cmhc_gamma) / N * J
+  where P_p = pure permutation matrix, J = all-ones matrix.
+  cmhc_gamma = 1.0 → pure permutations; < 1.0 → blended toward uniform.
 """
 
 import itertools
@@ -29,24 +34,21 @@ import torch
 import torch.nn as nn
 
 
-def get_permutation_matrices(n, device, dtype):
-    """Generate all n! permutation matrices of shape (n!, n, n)."""
-    perms = []
-    for p in itertools.permutations(range(n)):
-        mat = torch.zeros(n, n, device=device, dtype=dtype)
-        for i, j in enumerate(p):
-            mat[i, j] = 1.0
-        perms.append(mat)
-    return torch.stack(perms, dim=0)
-
-
 class Model(nn.Module):
-    """Standard MHC with softmax-permutation H_res (replaces Sinkhorn-Knopp)."""
+    """Standard MHC with softmax-permutation H_res (replaces Sinkhorn-Knopp).
 
-    def __init__(self, N: int = 4, C: int = 3584):
+    Permutation matrices are pre-computed once in ``__init__`` as a pure base
+    (``_perm_base``), then gamma-blended with the uniform distribution on first
+    access per dtype via ``_get_permutations()``.  This mirrors the MindSpore
+    ``HyperConnectionModule`` pattern and avoids regenerating the same matrices
+    on every forward pass.
+    """
+
+    def __init__(self, N: int = 4, C: int = 3584, cmhc_gamma: float = 1.0):
         super().__init__()
         self.N = N
         self.C = C
+        self._cmhc_gamma = cmhc_gamma
         nC = N * C                # 512
         n_perm = math.factorial(N)  # 24
         out_dim = n_perm + 2 * N    # 24 + 8 = 32
@@ -60,6 +62,15 @@ class Model(nn.Module):
         # gamma: RMSNorm weight (nC,)
         self.gamma = nn.Parameter(torch.ones(nC))
 
+        # Pre-compute pure permutation base [n!, n, n] — heavy numpy once.
+        perms = list(itertools.permutations(range(N)))
+        perm_base = torch.zeros(n_perm, N, N)
+        for p_idx, p in enumerate(perms):
+            for i, j in enumerate(p):
+                perm_base[p_idx, i, j] = 1.0
+        self.register_buffer('_perm_base', perm_base, persistent=False)
+        self._perms_cache = {}
+
         self._init_weights()
 
     def _init_weights(self):
@@ -67,6 +78,29 @@ class Model(nn.Module):
         torch.manual_seed(12345)
         nn.init.xavier_uniform_(self.phi)
         torch.set_rng_state(state)
+
+    def _get_permutations(self, dtype: torch.dtype = torch.float32) -> torch.Tensor:
+        """Return cached permutation matrices cast to *dtype*, gamma-blended.
+
+        On first access per dtype, the pure permutation base is blended with
+        the uniform distribution when ``_cmhc_gamma < 1.0`` and cached.
+
+        Args:
+            dtype: Target torch dtype for the returned Tensor.
+
+        Returns:
+            Tensor of shape ``(n!, N, N)``, either pure permutations or
+            gamma-blended with the uniform distribution.
+        """
+        if dtype not in self._perms_cache:
+            perm_mats = self._perm_base.to(dtype=dtype)
+            if self._cmhc_gamma < 1.0:
+                perm_mats = (
+                    self._cmhc_gamma * perm_mats +
+                    (1.0 - self._cmhc_gamma) / self.N
+                )
+            self._perms_cache[dtype] = perm_mats
+        return self._perms_cache[dtype]
 
     def forward(self, x: torch.Tensor):
         """
@@ -113,9 +147,10 @@ class Model(nn.Module):
         # 7. Softmax + permutation einsum (replaces Sinkhorn-Knopp)
         #    Birkhoff-von Neumann: doubly stochastic matrix as convex combination
         #    of permutation matrices weighted by softmax coefficients.
-        res_coeff = torch.softmax(H_res_raw, dim=-1)   # (B, S, n!)
-        perms = get_permutation_matrices(N, x.device, torch.float32)  # (n!, N, N)
-        H_res = torch.einsum('bsr,rij->bsij', res_coeff, perms)       # (B, S, N, N)
+        #    Uses _get_permutations() to support gamma blending (cmhc_gamma < 1.0).
+        res_coeff = torch.softmax(H_res_raw, dim=-1)                     # (B, S, n!)
+        perms = self._get_permutations(dtype=torch.float32).to(x.device)  # (n!, N, N), gamma-blended
+        H_res = torch.einsum('bsr,rij->bsij', res_coeff, perms)          # (B, S, N, N)
 
         # 8. Aggregation: h_in = sum_n(x_streams[n] * H_pre[n])
         x_streams = x_flat.reshape(B, S, N, C)         # (B, S, N, C)
@@ -163,23 +198,27 @@ if __name__ == "__main__":
     print("=== MHC Standard — smoke test ===\n")
 
     torch.manual_seed(42)
-    model = Model(N=4, C=128)
-    model.eval()
 
-    for idx, (x,) in enumerate(get_input_groups()):
-        with torch.no_grad():
-            h_in, h_post, h_res = model(x)
+    for gamma in [1.0, 0.9, 0.5]:
+        model = Model(N=4, C=3584, cmhc_gamma=gamma)
+        model.eval()
+        print(f"--- cmhc_gamma = {gamma} ---")
 
-        print(f"Case {idx}: x={list(x.shape)}  dtype={x.dtype}")
-        print(f"  h_in   shape={list(h_in.shape)}   dtype={h_in.dtype}   "
-              f"min={h_in.min().item():.4f}  max={h_in.max().item():.4f}")
-        print(f"  h_post shape={list(h_post.shape)} dtype={h_post.dtype} "
-              f"min={h_post.min().item():.4f}  max={h_post.max().item():.4f}")
-        print(f"  h_res  shape={list(h_res.shape)}  dtype={h_res.dtype}  "
-              f"min={h_res.min().item():.4f}  max={h_res.max().item():.4f}")
-        # Verify doubly stochastic: each row/col should sum to 1
-        row_sums = h_res.sum(dim=-1)
-        col_sums = h_res.sum(dim=-2)
-        print(f"  h_res  row_sums: [{row_sums.min().item():.4f}, {row_sums.max().item():.4f}]"
-              f"  col_sums: [{col_sums.min().item():.4f}, {col_sums.max().item():.4f}]")
+        for idx, (x,) in enumerate(get_input_groups()):
+            with torch.no_grad():
+                h_in, h_post, h_res = model(x)
+
+            print(f"Case {idx}: x={list(x.shape)}  dtype={x.dtype}")
+            print(f"  h_in   shape={list(h_in.shape)}   dtype={h_in.dtype}   "
+                  f"min={h_in.min().item():.4f}  max={h_in.max().item():.4f}")
+            print(f"  h_post shape={list(h_post.shape)} dtype={h_post.dtype} "
+                  f"min={h_post.min().item():.4f}  max={h_post.max().item():.4f}")
+            print(f"  h_res  shape={list(h_res.shape)}  dtype={h_res.dtype}  "
+                  f"min={h_res.min().item():.4f}  max={h_res.max().item():.4f}")
+            # Verify doubly stochastic: each row/col should sum to 1
+            row_sums = h_res.sum(dim=-1)
+            col_sums = h_res.sum(dim=-2)
+            print(f"  h_res  row_sums: [{row_sums.min().item():.4f}, {row_sums.max().item():.4f}]"
+                  f"  col_sums: [{col_sums.min().item():.4f}, {col_sums.max().item():.4f}]")
+            print()
         print()

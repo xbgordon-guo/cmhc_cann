@@ -49,8 +49,8 @@ def main():
     torch.manual_seed(args.seed)
 
     # --- Create models with identical weights ---
-    ref = model.Model(N=args.N, C=args.C)
-    cand = model_new_ascendc.ModelNew(N=args.N, C=args.C)
+    ref = model.Model(N=args.N, C=args.C, cmhc_gamma=0.9)
+    cand = model_new_ascendc.ModelNew(N=args.N, C=args.C, cmhc_gamma=0.9)
 
     # Copy phi weights: ref.phi → cand.phi
     cand.phi.data.copy_(ref.phi.data)
