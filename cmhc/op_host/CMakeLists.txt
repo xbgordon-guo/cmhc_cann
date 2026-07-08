@@ -10,12 +10,12 @@
 
 if (BUILD_OPEN_PROJECT)
     target_sources(op_host_aclnnExc PRIVATE
-        cmhc_def.cpp
+        mhc_pre_cmhc_def.cpp
     )
 
     if("${ASCEND_COMPUTE_UNIT}" STREQUAL "ascend950")
         add_ops_compile_options(
-            OP_NAME Cmhc
+            OP_NAME MhcPreCmhc
             OPTIONS --cce-auto-sync=off
                     -Wno-deprecated-declarations
                     -Werror
@@ -24,7 +24,7 @@ if (BUILD_OPEN_PROJECT)
         )
     else()
         add_ops_compile_options(
-            OP_NAME Cmhc
+            OP_NAME MhcPreCmhc
             OPTIONS --cce-auto-sync=off
                     -Wno-deprecated-declarations
                     -Werror
@@ -34,5 +34,5 @@ endif()
 
 if(NOT BUILD_OPS_RTY_KERNEL)
     add_op_to_compiled_list()
-    add_modules_sources(OPTYPE cmhc ACLNNTYPE aclnn_exclude)
+    add_modules_sources(OPTYPE mhc_pre_cmhc ACLNNTYPE aclnn_exclude)
 endif()

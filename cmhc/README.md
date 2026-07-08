@@ -1,4 +1,4 @@
-# Cmhc
+# MhcPreCmhc
 
 ## 产品支持情况
 
@@ -209,5 +209,5 @@
 
 | 调用方式      | 调用样例                 | 说明                                                         |
 |--------------|-------------------------|--------------------------------------------------------------|
-| aclnn调用 | [test_aclnn_cmhc](examples/test_aclnn_cmhc.cpp) | 通过[aclnnCmhc](docs/aclnnCmhc.md)接口方式调用Cmhc算子。 |
-| PyTorch API | - | 通过[cann_ops_transformer.cmhc](../../torch_extension/cann_ops_transformer/docs/zh/cmhc.md)接口方式调用Cmhc算子。 |
+| aclnn调用 | [test_aclnn_mhc_pre_cmhc](examples/test_aclnn_mhc_pre_cmhc.cpp) | 通过[aclnnMhcPreCmhc](docs/aclnnMhcPreCmhc.md)接口方式调用MhcPreCmhc算子。 |
+| PyTorch API | - | 通过[cann_ops_transformer.cmhc](../../torch_extension/cann_ops_transformer/docs/zh/mhc_pre_cmhc.md)接口方式调用MhcPreCmhc算子。 |

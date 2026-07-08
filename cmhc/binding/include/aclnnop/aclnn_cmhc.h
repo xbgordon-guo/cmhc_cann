@@ -1,1 +1,0 @@
-/home/y00889327/ops-transformer/build/binary/ascend910b/src/cmhc/op_host/op_api/aclnn_cmhc.h

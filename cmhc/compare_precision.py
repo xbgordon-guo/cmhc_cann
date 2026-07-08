@@ -5,7 +5,7 @@ Usage:
     # CPU-only test (reference model only)
     python compare_precision.py --cpu
 
-    # NPU comparison (requires cmhc binding installed)
+    # NPU comparison (requires mhc_pre_cmhc binding installed)
     python compare_precision.py --npu
 """
 
@@ -80,7 +80,7 @@ def main():
             compare(r[:3], c_cpu[:3], ["h_in", "h_post", "h_res"])
         except Exception as e:
             print(f"\nKernel call FAILED: {e}")
-            print("The cmhc binding .so needs to be built first:")
+            print("The mhc_pre_cmhc binding .so needs to be built first:")
             print("  cd binding && python setup.py build_ext --inplace")
     else:
         print("\n(CPU-only mode. Use --npu for kernel comparison.)")

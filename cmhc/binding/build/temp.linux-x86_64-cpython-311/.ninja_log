@@ -1,3 +1,3 @@
 # ninja log v7
-1	26322	1783413434606400831	/home/y00889327/AscendOpGenAgent/cmhc/binding/build/temp.linux-x86_64-cpython-311/cmhc_torch_host.o	a64268cc681662a2
-1	27357	1783413434606400831	/home/y00889327/AscendOpGenAgent/cmhc/binding/build/temp.linux-x86_64-cpython-311/register.o	a231c0cfdc6bd6d5
+0	24271	1783493716942228991	/home/y00889327/cmhc_cann/cmhc/binding/build/temp.linux-x86_64-cpython-311/mhc_pre_cmhc_torch_host.o	4d5db698040d779b
+0	27967	1783493716942228991	/home/y00889327/cmhc_cann/cmhc/binding/build/temp.linux-x86_64-cpython-311/register.o	c0419e8cc2fca9bd

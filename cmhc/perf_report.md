@@ -1,6 +1,6 @@
 # 性能评估结果
 
-- **Operator**: cmhc
+- **Operator**: mhc_pre_cmhc
 - **Device**: npu:12 (source=auto)
 - **Warmup**: 3
 - **Repeats**: 1
@@ -39,7 +39,7 @@
 
 如需进一步分析性能瓶颈（各流水线利用率、核间负载均衡、主 Bound 判定），可运行：
 ```bash
-python3 ${SKILL_PATH}/scripts/msprof_perf_summary.py ./PROF_GROUP_* cmhc
+python3 ${SKILL_PATH}/scripts/msprof_perf_summary.py ./PROF_GROUP_* mhc_pre_cmhc
 ```
 
 或参考 `ops-profiling/references/optimization_quickref.md` 获取优化建议。

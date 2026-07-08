@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""cmhc — PyTorch nn.Module wrapper for the cmhc AscendC kernel.
+"""mhc_pre_cmhc — PyTorch nn.Module wrapper for the cmhc AscendC kernel.
 
-Calls torch.ops.npu.cmhc() via the custom binding.
+Calls torch.ops.npu.mhc_pre_cmhc() via the custom binding.
 
 Architecture: Cube+AIC+AIV with Softmax-over-24-permutations H_res.
 """
@@ -15,10 +15,10 @@ import torch.nn as nn
 
 # --- Load the custom .so ---
 _BINDING_DIR = Path(__file__).resolve().parent / "binding"
-_LIB_PATTERN = str(_BINDING_DIR / "cmhc_torch_ops.*.so")
+_LIB_PATTERN = str(_BINDING_DIR / "mhc_pre_cmhc_torch_ops.*.so")
 
 try:
-    import cmhc_torch_ops  # noqa: F401 — pip-installed
+    import mhc_pre_cmhc_torch_ops  # noqa: F401 — pip-installed
 except ImportError:
     import glob as _glob
     _libs = _glob.glob(_LIB_PATTERN)
@@ -27,7 +27,7 @@ except ImportError:
 
 
 class ModelNew(nn.Module):
-    """MHC with cmhc kernel (Cube MatMul + Softmax-permutation H_res)."""
+    """MHC with mhc_pre_cmhc kernel (Cube MatMul + Softmax-permutation H_res)."""
 
     def __init__(self, N: int = 4, C: int = 3584):
         super().__init__()
@@ -70,7 +70,7 @@ class ModelNew(nn.Module):
         alpha = self.alpha.data.to(device, copy=False)
         bias  = self.bias.data.to(device, copy=False)
 
-        result = torch.ops.npu.cmhc(
+        result = torch.ops.npu.mhc_pre_cmhc(
             x, phi, alpha, bias,
             self.N,           # hc_mult
             0,                 # num_iters (unused, was Sinkhorn)

@@ -1,16 +1,16 @@
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
- * cmhc torch.ops binding — header
+ * mhc_pre_cmhc torch.ops binding — header
  */
-#ifndef CMHC_TORCH_OPS_H
-#define CMHC_TORCH_OPS_H
+#ifndef MHC_PRE_CMHC_TORCH_OPS_H
+#define MHC_PRE_CMHC_TORCH_OPS_H
 
 #include <ATen/ATen.h>
 #include <vector>
 
-namespace cmhc_binding {
+namespace mhc_pre_cmhc_binding {
 
-std::vector<at::Tensor> cmhc(
+std::vector<at::Tensor> mhc_pre_cmhc(
     const at::Tensor &x,
     const at::Tensor &phi,
     const at::Tensor &alpha,
@@ -21,6 +21,6 @@ std::vector<at::Tensor> cmhc(
     double norm_eps,
     bool need_backward);
 
-}  // namespace cmhc_binding
+}  // namespace mhc_pre_cmhc_binding
 
-#endif  // CMHC_TORCH_OPS_H
+#endif  // MHC_PRE_CMHC_TORCH_OPS_H

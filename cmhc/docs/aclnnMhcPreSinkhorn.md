@@ -1,4 +1,4 @@
-# aclnnCmhc
+# aclnnMhcPreCmhc
 
 ## 产品支持情况
 
@@ -76,10 +76,10 @@
 
 ## 函数原型
 
-每个算子分为[两段式接口](../../../docs/zh/context/两段式接口.md)，必须先调用`aclnnCmhcGetWorkspaceSize`接口获取计算所需workspace大小以及包含了算子计算流程的执行器，再调用`aclnnCmhc`执行实际计算。
+每个算子分为[两段式接口](../../../docs/zh/context/两段式接口.md)，必须先调用`aclnnMhcPreCmhcGetWorkspaceSize`接口获取计算所需workspace大小以及包含了算子计算流程的执行器，再调用`aclnnMhcPreCmhc`执行实际计算。
 
 ```c++
-aclnnStatus aclnnCmhcGetWorkspaceSize(
+aclnnStatus aclnnMhcPreCmhcGetWorkspaceSize(
     const aclTensor *x,
     const aclTensor *phi,
     const aclTensor *alpha,
@@ -102,14 +102,14 @@ aclnnStatus aclnnCmhcGetWorkspaceSize(
 ```
 
 ```c++
-aclnnStatus aclnnCmhc(
+aclnnStatus aclnnMhcPreCmhc(
     void          *workspace,
     uint64_t       workspaceSize,
     aclOpExecutor *executor,
     aclrtStream    stream)
 ```
 
-## aclnnCmhcGetWorkspaceSize
+## aclnnMhcPreCmhcGetWorkspaceSize
 
 - **参数说明**
 
@@ -371,7 +371,7 @@ aclnnStatus aclnnCmhc(
   </tbody>
   </table>
 
-## aclnnCmhc
+## aclnnMhcPreCmhc
 
 - **参数说明**
   <table style="undefined;table-layout: fixed; width: 1154px"><colgroup>
@@ -394,7 +394,7 @@ aclnnStatus aclnnCmhc(
     <tr>
       <td>workspaceSize</td>
       <td>输入</td>
-      <td>在Device侧申请的workspace大小，由第一段接口aclnnCmhcGetWorkspaceSize获取。</td>
+      <td>在Device侧申请的workspace大小，由第一段接口aclnnMhcPreCmhcGetWorkspaceSize获取。</td>
     </tr>
     <tr>
       <td>executor</td>
@@ -417,7 +417,7 @@ aclnnStatus aclnnCmhc(
 
 - 确定性计算
 
-  - aclnnCmhc默认采用确定性实现，相同输入多次调用结果一致。
+  - aclnnMhcPreCmhc默认采用确定性实现，相同输入多次调用结果一致。
 
 - 规格约束
 
@@ -436,7 +436,7 @@ aclnnStatus aclnnCmhc(
 #include <iostream>
 #include <vector>
 #include "acl/acl.h"
-#include "aclnnop/aclnn_cmhc.h"
+#include "aclnnop/aclnn_mhc_pre_cmhc.h"
 
 #define CHECK_RET(cond, return_expr)                                                                                   \
   do {                                                                                                               \
@@ -722,14 +722,14 @@ int main()
   uint64_t workspace_size = 0;
   aclOpExecutor *executor = nullptr;
 
-  aclnnStatus aclnn_ret = aclnnCmhcGetWorkspaceSize(
+  aclnnStatus aclnn_ret = aclnnMhcPreCmhcGetWorkspaceSize(
       tensors.x, tensors.phi, tensors.alpha, tensors.bias,
       hc_mult, num_iters, hc_eps, norm_eps, need_backward,
       tensors.hin, tensors.h_post, tensors.h_res,
       tensors.h_pre, tensors.hc_before_norm, tensors.inv_rms,
       tensors.sum_out, tensors.norm_out,
       &workspace_size, &executor);
-  CHECK_RET(aclnn_ret == ACL_SUCCESS, LOG_PRINT("aclnnCmhcGetWorkspaceSize failed, error: %d\n", aclnn_ret);
+  CHECK_RET(aclnn_ret == ACL_SUCCESS, LOG_PRINT("aclnnMhcPreCmhcGetWorkspaceSize failed, error: %d\n", aclnn_ret);
             return -1);
 
   void *workspace_addr = nullptr;
@@ -738,12 +738,12 @@ int main()
       CHECK_RET(ret == ACL_SUCCESS, LOG_PRINT("aclrtMalloc workspace failed, error: %d\n", ret); return -1);
   }
 
-  aclnn_ret = aclnnCmhc(workspace_addr, workspace_size, executor, stream);
-  CHECK_RET(aclnn_ret == ACL_SUCCESS, LOG_PRINT("aclnnCmhc failed, error: %d\n", aclnn_ret); return -1);
+  aclnn_ret = aclnnMhcPreCmhc(workspace_addr, workspace_size, executor, stream);
+  CHECK_RET(aclnn_ret == ACL_SUCCESS, LOG_PRINT("aclnnMhcPreCmhc failed, error: %d\n", aclnn_ret); return -1);
 
   CHECK_RET(aclrtSynchronizeStream(stream) == ACL_SUCCESS, LOG_PRINT("aclrtSynchronizeStream failed\n"); return -1);
 
-  LOG_PRINT("Cmhc compute success!\n");
+  LOG_PRINT("MhcPreCmhc compute success!\n");
 
   DestroyTensors(tensors);
   FreeDeviceMemory(tensors);

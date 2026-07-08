@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
- * cmhc — torch.ops.npu.cmhc registration
+ * cmhc — torch.ops.npu.mhc_pre_cmhc registration
  */
 #include <torch/extension.h>
 #include <torch/library.h>
@@ -10,13 +10,13 @@ namespace {
 
 TORCH_LIBRARY_FRAGMENT(npu, m)
 {
-    m.def("cmhc(Tensor x, Tensor phi, Tensor alpha, Tensor bias, "
+    m.def("mhc_pre_cmhc(Tensor x, Tensor phi, Tensor alpha, Tensor bias, "
           "int hc_mult, int num_iters, float hc_eps, float norm_eps, bool need_backward) -> Tensor[]");
 }
 
 TORCH_LIBRARY_IMPL(npu, PrivateUse1, m)
 {
-    m.impl("cmhc", TORCH_FN(cmhc_binding::cmhc));
+    m.impl("mhc_pre_cmhc", TORCH_FN(mhc_pre_cmhc_binding::mhc_pre_cmhc));
 }
 
 }  // namespace
