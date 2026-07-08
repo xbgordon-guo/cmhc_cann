@@ -252,6 +252,7 @@ public:
                                 GM_ADDR post, GM_ADDR combFrag,
                                 GM_ADDR hPre, GM_ADDR hcBeforeNorm, GM_ADDR invRms,
                                 GM_ADDR sumOut, GM_ADDR normOut,
+                                GM_ADDR permMats,
                                 GM_ADDR workspace,
                                 const MhcPreCmhcTilingData *tilingDataPtr, TPipe *pipePtr)
     {
@@ -265,6 +266,7 @@ public:
         yGm.SetGlobalBuffer((__gm__ T *)y);
         postGm.SetGlobalBuffer((__gm__ float *)post);
         combFragGm.SetGlobalBuffer((__gm__ float *)combFrag);
+        permMatsGm.SetGlobalBuffer((__gm__ float *)permMats);
         workspaceGm.SetGlobalBuffer((__gm__ float *)workspace);
 
         if (needGrad_) {
@@ -295,6 +297,11 @@ public:
         // TBuf
         pipe->InitBuffer(combFragBuf,
                          tilingData->stage2RowFactor * tilingData->hcMult * tilingData->hcMultAlign * NUM_TWO * sizeof(float));
+        // Tiny buffer for permutation matrices (nPerm * N * N floats)
+        // For N=4: 24 * 16 * 4 = 1536 bytes — loaded once at init
+        int64_t nPerm = tilingData->hcMix - tilingData->hcMult * NUM_TWO;
+        int64_t permMatsBytes = nPerm * tilingData->hcMult * tilingData->hcMult * sizeof(float);
+        pipe->InitBuffer(permMatsBuf, permMatsBytes);
         pipe->InitBuffer(hcBaseBuf0, tilingData->hcMultAlign * sizeof(float));
         pipe->InitBuffer(hcBaseBuf1, tilingData->hcMultAlign * sizeof(float));
         pipe->InitBuffer(hcBaseBuf2, tilingData->hcMult * tilingData->hcMultAlign * sizeof(float));
@@ -317,6 +324,7 @@ public:
         xCastLocal = xCastBuf.Get<float>();
         yCastLocal = yCastBuf.Get<float>();
         combFragBufLocal = combFragBuf.Get<float>();
+        permMatsLocal = permMatsBuf.Get<float>();
     }
 
     __aicore__ inline void Process(bool isTailBsLoop = false)
@@ -348,6 +356,10 @@ public:
             CopyIn(hcBaseGm[tilingData->hcMult], hcBase1Local, 1, tilingData->hcMult);
             int64_t nPermBias = tilingData->hcMix - tilingData->hcMult * NUM_TWO;
             CopyIn(hcBaseGm[tilingData->hcMult * NUM_TWO], hcBase2Local, 1, nPermBias);
+            // Load perm_mats (n!, N, N) from GM — tiny (384 floats for N=4), loaded once
+            // perm_mats is pre-computed on Python side with optional gamma blending
+            int64_t permMatsNN = tilingData->hcMult * tilingData->hcMult;
+            CopyIn(permMatsGm, permMatsLocal, 1, nPermBias * permMatsNN);
             event_t eventId = static_cast<event_t>(GetTPipePtr()->FetchEventID(HardEvent::MTE2_V));
             SetFlag<HardEvent::MTE2_V>(eventId);
             WaitFlag<HardEvent::MTE2_V>(eventId);
@@ -488,14 +500,10 @@ public:
                 PipeBarrier<PIPE_V>();
 
                 // Birkhoff-von Neumann: permutation weighted sum
+                // h_res[r] = sum_p softmax_coeff[r][p] * permMatsLocal[p]
+                // permMatsLocal is pre-loaded from GM (shape: nPerm, nn), supports
+                // gamma-blended permutations with fractional values.
                 {
-                    static const int32_t permIdx[96] = {
-                        0,1,2,3, 0,1,3,2, 0,2,1,3, 0,2,3,1, 0,3,1,2, 0,3,2,1,
-                        1,0,2,3, 1,0,3,2, 1,2,0,3, 1,2,3,0, 1,3,0,2, 1,3,2,0,
-                        2,0,1,3, 2,0,3,1, 2,1,0,3, 2,1,3,0, 2,3,0,1, 2,3,1,0,
-                        3,0,1,2, 3,0,2,1, 3,1,0,2, 3,1,2,0, 3,2,0,1, 3,2,1,0,
-                    };
-                    // Use reduceLocal as temp for permutation matrix
                     int64_t nn = tilingData->hcMult * tilingData->hcMult;
                     for (int64_t r = 0; r < curRowFactor; ++r) {
                         for (int64_t i = 0; i < nn; ++i)
@@ -504,10 +512,10 @@ public:
                     for (int64_t r = 0; r < curRowFactor; ++r) {
                         for (int64_t p = 0; p < nPerm; ++p) {
                             float coeff = combFragLocal.GetValue(r * nPerm + p);
-                            for (int64_t i = 0; i < tilingData->hcMult; ++i) {
-                                int64_t col = static_cast<int64_t>(permIdx[static_cast<int>(p * tilingData->hcMult + i)]);
-                                int64_t idx = r * nn + i * static_cast<int>(tilingData->hcMult) + col;
-                                reduceLocal.SetValue(idx, reduceLocal.GetValue(idx) + coeff);
+                            for (int64_t j = 0; j < nn; ++j) {
+                                int64_t idx = r * nn + j;
+                                reduceLocal.SetValue(idx, reduceLocal.GetValue(idx) +
+                                    coeff * permMatsLocal.GetValue(p * nn + j));
                             }
                         }
                     }
@@ -551,6 +559,7 @@ private:
     GlobalTensor<T> yGm;
     GlobalTensor<float> postGm;
     GlobalTensor<float> combFragGm;
+    GlobalTensor<float> permMatsGm;
 
     GlobalTensor<float> hPreGm;
     GlobalTensor<float> hcBeforeNormGm;
@@ -588,6 +597,7 @@ private:
     TBuf<QuePosition::VECCALC> yCastBuf;
     TBuf<QuePosition::VECCALC> maskPatternBuf;
     TBuf<QuePosition::VECCALC> combFragBuf;
+    TBuf<QuePosition::VECCALC> permMatsBuf;
 
     LocalTensor<float> mxies01Local;
     LocalTensor<float> mixes2Local;
@@ -612,8 +622,9 @@ private:
 
     LocalTensor<float> reduceLocal2;
     LocalTensor<float> combFragBufLocal;
+    LocalTensor<float> permMatsLocal;
 };
 
-} // namespace CmhcSinkhorn
+} // namespace MhcPreCmhc
 
 #endif

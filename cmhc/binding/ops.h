@@ -15,6 +15,7 @@ std::vector<at::Tensor> mhc_pre_cmhc(
     const at::Tensor &phi,
     const at::Tensor &alpha,
     const at::Tensor &bias,
+    const at::Tensor &perm_mats,
     int64_t hc_mult,
     int64_t num_iters,
     double hc_eps,

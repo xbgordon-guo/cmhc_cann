@@ -10,7 +10,7 @@ namespace {
 
 TORCH_LIBRARY_FRAGMENT(npu, m)
 {
-    m.def("mhc_pre_cmhc(Tensor x, Tensor phi, Tensor alpha, Tensor bias, "
+    m.def("mhc_pre_cmhc(Tensor x, Tensor phi, Tensor alpha, Tensor bias, Tensor perm_mats, "
           "int hc_mult, int num_iters, float hc_eps, float norm_eps, bool need_backward) -> Tensor[]");
 }
 

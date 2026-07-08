@@ -26,6 +26,7 @@ using namespace CmhcNs;
 using namespace AscendC;
 
 extern "C" __global__ __aicore__ void mhc_pre_cmhc(GM_ADDR x, GM_ADDR phi, GM_ADDR alpha, GM_ADDR bias,
+                                             GM_ADDR permMats,
                                              GM_ADDR hin, GM_ADDR hPost, GM_ADDR hRes,
                                              GM_ADDR hPre, GM_ADDR hcBeforeNorm, GM_ADDR invRms,
                                              GM_ADDR sumOut, GM_ADDR normOut,

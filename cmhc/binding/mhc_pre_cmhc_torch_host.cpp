@@ -8,7 +8,12 @@
  *   4. Res: softmax over n! permutation logits → Birkhoff-von Neumann
  *   5. Weighted sum: h_in = sum_n(x_streams[n] * h_pre[n])
  *
- * This is the "model.py on NPU" — uses at:: ops which leverage Cube where available.
+ * Permutation matrices are passed from Python (perm_mats), enabling
+ * gamma-blending with the uniform distribution without recompilation.
+ *
+ * Birkhoff-von Neumann:
+ *     h_res[r] = sum_p softmax_coeff[r][p] * perm_mats[p]
+ * where perm_mats is (n!, N, N) pre-computed on the Python side.
  */
 
 #include <cmath>
@@ -19,19 +24,12 @@
 
 namespace mhc_pre_cmhc_binding {
 
-// Pre-computed permutation index table for N=4 (n! = 24)
-static const int32_t kPermIdx[96] = {
-    0,1,2,3, 0,1,3,2, 0,2,1,3, 0,2,3,1, 0,3,1,2, 0,3,2,1,
-    1,0,2,3, 1,0,3,2, 1,2,0,3, 1,2,3,0, 1,3,0,2, 1,3,2,0,
-    2,0,1,3, 2,0,3,1, 2,1,0,3, 2,1,3,0, 2,3,0,1, 2,3,1,0,
-    3,0,1,2, 3,0,2,1, 3,1,0,2, 3,1,2,0, 3,2,0,1, 3,2,1,0,
-};
-
 std::vector<at::Tensor> mhc_pre_cmhc(
     const at::Tensor &x,
     const at::Tensor &phi,
     const at::Tensor &alpha,
     const at::Tensor &bias,
+    const at::Tensor &perm_mats,
     int64_t hc_mult,
     int64_t num_iters,   // unused, kept for API compatibility
     double hc_eps,
@@ -48,6 +46,11 @@ std::vector<at::Tensor> mhc_pre_cmhc(
     int64_t nPerm = phi.sizes()[0] - 2 * N;
     float eps = static_cast<float>(norm_eps);
     auto opts_f32 = x.options().dtype(at::kFloat);
+
+    // Validate perm_mats shape: (n!, N, N)
+    TORCH_CHECK(perm_mats.dim() == 3, "perm_mats must be [n!, N, N]");
+    TORCH_CHECK(perm_mats.size(0) == nPerm && perm_mats.size(1) == N && perm_mats.size(2) == N,
+                "perm_mats shape must be (", nPerm, ", ", N, ", ", N, ")");
 
     // 1. Flatten and cast to fp32
     at::Tensor x_flat = x.reshape({M, nC}).to(at::kFloat);
@@ -78,22 +81,12 @@ std::vector<at::Tensor> mhc_pre_cmhc(
     at::Tensor h_res_logits = act.slice(/*dim=*/1, 2*N, 2*N + nPerm);
     at::Tensor res_coeff = h_res_logits.softmax(/*dim=*/-1);  // (M, nPerm)
 
-    // Build permutation matrix tensor
-    auto perm_opts = at::TensorOptions().dtype(at::kLong).device(x.device());
-    at::Tensor perm_idx = at::from_blob(const_cast<int32_t*>(kPermIdx),
-                                         {nPerm, N}, at::TensorOptions().dtype(at::kInt)
-                                         .device(at::kCPU)).to(at::kLong).to(x.device());
-
-    // One-hot encoding: (nPerm, N, N)
-    at::Tensor perms = at::zeros({nPerm, N, N}, opts_f32);
-    for (int64_t p = 0; p < nPerm; ++p) {
-        for (int64_t i = 0; i < N; ++i) {
-            int64_t col = kPermIdx[p * N + i];
-            perms[p][i][col] = 1.0f;
-        }
-    }
+    // Permutation matrices passed from Python (pre-computed, possibly gamma-blended)
+    // perm_mats: (n!, N, N) → use einsum directly
+    at::Tensor perms = perm_mats.to(at::kFloat);  // ensure fp32
 
     // einsum('mr,rij->mij')  →  (M, N, N)
+    // Birkhoff-von Neumann: doubly stochastic matrix as convex combination
     at::Tensor h_res = at::einsum("mr,rij->mij", {res_coeff, perms});
 
     // 7. Weighted sum: h_in = sum_n(x_streams[n] * h_pre[n])

@@ -42,12 +42,14 @@ static constexpr int64_t HCMULT_DEFAULT_VALUE = 4;
 static constexpr int64_t NUM_ITERS_DEFAULT_VALUE = 20;
 
 static bool CheckNotNull(const aclTensor *x, const aclTensor *phi, const aclTensor *alpha, const aclTensor *bias,
+                         const aclTensor *perm_mats,
                          const aclTensor *hin, const aclTensor *hPost, const aclTensor *hRes)
 {
     OP_CHECK_NULL(x, return false);
     OP_CHECK_NULL(phi, return false);
     OP_CHECK_NULL(alpha, return false);
     OP_CHECK_NULL(bias, return false);
+    OP_CHECK_NULL(perm_mats, return false);
     OP_CHECK_NULL(hin, return false);
     OP_CHECK_NULL(hPost, return false);
     OP_CHECK_NULL(hRes, return false);
@@ -55,6 +57,7 @@ static bool CheckNotNull(const aclTensor *x, const aclTensor *phi, const aclTens
 }
 
 static bool CheckDtypeValid(const aclTensor *x, const aclTensor *phi, const aclTensor *alpha, const aclTensor *bias,
+                            const aclTensor *perm_mats,
                             const aclTensor *hin, const aclTensor *hPost, const aclTensor *hRes,
                             const aclTensor *hPre, const aclTensor *hcBeforeNorm, const aclTensor *invRms,
                             const aclTensor *sumOut, const aclTensor *normOut, bool needBackward)
@@ -63,6 +66,7 @@ static bool CheckDtypeValid(const aclTensor *x, const aclTensor *phi, const aclT
     OP_CHECK_DTYPE_NOT_SUPPORT(phi, DTYPE_OTHER_SUPPORT_LIST, return false);
     OP_CHECK_DTYPE_NOT_SUPPORT(alpha, DTYPE_OTHER_SUPPORT_LIST, return false);
     OP_CHECK_DTYPE_NOT_SUPPORT(bias, DTYPE_OTHER_SUPPORT_LIST, return false);
+    OP_CHECK_DTYPE_NOT_SUPPORT(perm_mats, DTYPE_OTHER_SUPPORT_LIST, return false);
     OP_CHECK_DTYPE_NOT_SUPPORT(hin, DTYPE_X_SUPPORT_LIST, return false);
     OP_CHECK_DTYPE_NOT_SUPPORT(hPost, DTYPE_OTHER_SUPPORT_LIST, return false);
     OP_CHECK_DTYPE_NOT_SUPPORT(hRes, DTYPE_OTHER_SUPPORT_LIST, return false);
@@ -78,6 +82,7 @@ static bool CheckDtypeValid(const aclTensor *x, const aclTensor *phi, const aclT
 }
 
 static bool CheckShape(const aclTensor *x, const aclTensor *phi, const aclTensor *alpha, const aclTensor *bias,
+                       const aclTensor *perm_mats,
                        const aclTensor *hin, const aclTensor *hPost, const aclTensor *hRes,
                        const aclTensor *hPre, const aclTensor *hcBeforeNorm, const aclTensor *invRms,
                        const aclTensor *sumOut, const aclTensor *normOut,
@@ -90,7 +95,7 @@ static bool CheckShape(const aclTensor *x, const aclTensor *phi, const aclTensor
                 "x dim must be 4 (bs, seq_len, n, c), but got dim = %ld.", xDim);
         return false;
     }
-    
+
     int64_t bs = xShape.GetDim(0);
     int64_t seqLen = xShape.GetDim(1);
     int64_t n = xShape.GetDim(2);
@@ -101,16 +106,28 @@ static bool CheckShape(const aclTensor *x, const aclTensor *phi, const aclTensor
                 "hcMult must be in range [%ld], but got hcMult = %ld.", HCMULT_DEFAULT_VALUE, hcMult);
         return false;
     }
-    
+
     if (n != hcMult) {
         OP_LOGE(ACLNN_ERR_PARAM_INVALID,
                 "x shape[2] (n=%ld) must equal hcMult (%ld), but they are different.", n, hcMult);
         return false;
     }
-    
+
     if (numIters != NUM_ITERS_DEFAULT_VALUE) {
         OP_LOGE(ACLNN_ERR_PARAM_INVALID,
                 "numIters must be in range [%ld], but got numIters = %ld.", NUM_ITERS_DEFAULT_VALUE, numIters);
+        return false;
+    }
+
+    // Validate perm_mats shape: (n!, N, N)
+    auto permShape = perm_mats->GetViewShape();
+    if (permShape.GetDimNum() != 3 ||
+        permShape.GetDim(0) != 24 ||  // 4! = 24 for N=4
+        permShape.GetDim(1) != n || permShape.GetDim(2) != n) {
+        OP_LOGE(ACLNN_ERR_PARAM_INVALID,
+                "perm_mats shape must be (24, %ld, %ld), but got (%ld, %ld, %ld).",
+                n, n,
+                permShape.GetDim(0), permShape.GetDim(1), permShape.GetDim(2));
         return false;
     }
     
@@ -248,6 +265,7 @@ static bool IsFormatSupport(const aclTensor *tensor, const std::string &tensorNa
 }
 
 static bool CheckFormat(const aclTensor *x, const aclTensor *phi, const aclTensor *alpha, const aclTensor *bias,
+                        const aclTensor *perm_mats,
                         const aclTensor *hin, const aclTensor *hPost, const aclTensor *hRes,
                         const aclTensor *hPre, const aclTensor *hcBeforeNorm, const aclTensor *invRms,
                         const aclTensor *sumOut, const aclTensor *normOut, bool needBackward)
@@ -256,6 +274,7 @@ static bool CheckFormat(const aclTensor *x, const aclTensor *phi, const aclTenso
     CHECK_RET(IsFormatSupport(phi, "phi"), false);
     CHECK_RET(IsFormatSupport(alpha, "alpha"), false);
     CHECK_RET(IsFormatSupport(bias, "bias"), false);
+    CHECK_RET(IsFormatSupport(perm_mats, "perm_mats"), false);
     CHECK_RET(IsFormatSupport(hin, "hin"), false);
     CHECK_RET(IsFormatSupport(hPost, "hPost"), false);
     CHECK_RET(IsFormatSupport(hRes, "hRes"), false);
@@ -272,17 +291,18 @@ static bool CheckFormat(const aclTensor *x, const aclTensor *phi, const aclTenso
 }
 
 static inline aclnnStatus CheckParams(const aclTensor *x, const aclTensor *phi, const aclTensor *alpha,
-                                      const aclTensor *bias, const aclTensor *hin, const aclTensor *hPost,
+                                      const aclTensor *bias, const aclTensor *perm_mats,
+                                      const aclTensor *hin, const aclTensor *hPost,
                                       const aclTensor *hRes, const aclTensor *hPre, const aclTensor *hcBeforeNorm,
                                       const aclTensor *invRms, const aclTensor *sumOut, const aclTensor *normOut,
                                       int64_t hcMult, int64_t numIters, bool needBackward)
 {
-    CHECK_RET(CheckNotNull(x, phi, alpha, bias, hin, hPost, hRes), ACLNN_ERR_PARAM_NULLPTR);
-    CHECK_RET(CheckDtypeValid(x, phi, alpha, bias, hin, hPost, hRes, hPre, hcBeforeNorm, invRms, sumOut, normOut, needBackward),
+    CHECK_RET(CheckNotNull(x, phi, alpha, bias, perm_mats, hin, hPost, hRes), ACLNN_ERR_PARAM_NULLPTR);
+    CHECK_RET(CheckDtypeValid(x, phi, alpha, bias, perm_mats, hin, hPost, hRes, hPre, hcBeforeNorm, invRms, sumOut, normOut, needBackward),
               ACLNN_ERR_PARAM_INVALID);
-    CHECK_RET(CheckShape(x, phi, alpha, bias, hin, hPost, hRes, hPre, hcBeforeNorm, invRms, sumOut, normOut, hcMult, numIters, needBackward),
+    CHECK_RET(CheckShape(x, phi, alpha, bias, perm_mats, hin, hPost, hRes, hPre, hcBeforeNorm, invRms, sumOut, normOut, hcMult, numIters, needBackward),
               ACLNN_ERR_PARAM_INVALID);
-    CHECK_RET(CheckFormat(x, phi, alpha, bias, hin, hPost, hRes, hPre,
+    CHECK_RET(CheckFormat(x, phi, alpha, bias, perm_mats, hin, hPost, hRes, hPre,
                           hcBeforeNorm, invRms, sumOut, normOut, needBackward),
               ACLNN_ERR_PARAM_INVALID);
     return ACLNN_SUCCESS;
@@ -290,20 +310,21 @@ static inline aclnnStatus CheckParams(const aclTensor *x, const aclTensor *phi, 
 
 aclnnStatus aclnnMhcPreCmhcGetWorkspaceSize(
     const aclTensor *x, const aclTensor *phi, const aclTensor *alpha, const aclTensor *bias,
+    const aclTensor *perm_mats,
     int64_t hcMult, int64_t numIters, double hcEps, double normEps, bool needBackward,
     aclTensor *hin, aclTensor *hPost, aclTensor *hRes,
     aclTensor *hPre, aclTensor *hcBeforeNorm, aclTensor *invRms,
     aclTensor *sumOut, aclTensor *normOut,
     uint64_t *workspaceSize, aclOpExecutor **executor)
-    
+
 {
     L2_DFX_PHASE_1(aclnnMhcPreCmhc,
-                   DFX_IN(x, phi, alpha, bias, hcMult, numIters, hcEps, normEps, needBackward),
+                   DFX_IN(x, phi, alpha, bias, perm_mats, hcMult, numIters, hcEps, normEps, needBackward),
                    DFX_OUT(hin, hPost, hRes, hPre, hcBeforeNorm, invRms, sumOut, normOut));
     auto uniqueExecutor = CREATE_EXECUTOR();
     CHECK_RET(uniqueExecutor.get() != nullptr, ACLNN_ERR_INNER_CREATE_EXECUTOR);
 
-    auto ret = CheckParams(x, phi, alpha, bias, hin, hPost, hRes, hPre, hcBeforeNorm, invRms, sumOut, normOut, hcMult, numIters, needBackward);
+    auto ret = CheckParams(x, phi, alpha, bias, perm_mats, hin, hPost, hRes, hPre, hcBeforeNorm, invRms, sumOut, normOut, hcMult, numIters, needBackward);
     CHECK_RET(ret == ACLNN_SUCCESS, ret);
     // Check if input tensors are empty
     if (x->IsEmpty() || hin->IsEmpty() || hPost->IsEmpty() || hRes->IsEmpty()) {
@@ -320,9 +341,12 @@ aclnnStatus aclnnMhcPreCmhcGetWorkspaceSize(
     CHECK_RET(alphaContiguous != nullptr, ACLNN_ERR_INNER_NULLPTR);
     const aclTensor *biasContiguous = l0op::Contiguous(bias, uniqueExecutor.get());
     CHECK_RET(biasContiguous != nullptr, ACLNN_ERR_INNER_NULLPTR);
+    const aclTensor *permMatsContiguous = l0op::Contiguous(perm_mats, uniqueExecutor.get());
+    CHECK_RET(permMatsContiguous != nullptr, ACLNN_ERR_INNER_NULLPTR);
 
     const aclTensor *kernelOut = l0op::MhcPreCmhc(
-        xContiguous, phiContiguous, alphaContiguous, biasContiguous, hcMult, numIters, hcEps, normEps, needBackward,
+        xContiguous, phiContiguous, alphaContiguous, biasContiguous, permMatsContiguous,
+        hcMult, numIters, hcEps, normEps, needBackward,
         hin, hPost, hRes, hPre, hcBeforeNorm, invRms, sumOut, normOut, uniqueExecutor.get());
     CHECK_RET(kernelOut != nullptr, ACLNN_ERR_INNER_NULLPTR);
 

@@ -29,6 +29,7 @@ namespace l0op {
  * @param [in] phi: Weight matrix, shape is [D, hcMix], dtype is FP32
  * @param [in] alpha: Scaling coefficients, shape is [hcMix], dtype is FP32
  * @param [in] bias: Bias vector, shape is [hcMix], dtype is FP32
+ * @param [in] perm_mats: Permutation matrices, shape is [n!, N, N], dtype is FP32
  * @param [in] hcMult: Number of heads (n)
  * @param [in] numIters: Number of Sinkhorn iterations
  * @param [in] hcEps: Epsilon value for Sinkhorn iteration
@@ -46,7 +47,8 @@ namespace l0op {
  * @return aclTensor*: Output tensor hin
  */
 const aclTensor *MhcPreCmhc(const aclTensor *x, const aclTensor *phi, const aclTensor *alpha,
-                                const aclTensor *bias, int64_t hcMult, int64_t numIters, double hcEps,
+                                const aclTensor *bias, const aclTensor *perm_mats,
+                                int64_t hcMult, int64_t numIters, double hcEps,
                                 double normEps, bool needBackward,
                                 aclTensor *hin, aclTensor *hPost, aclTensor *hRes,
                                 aclTensor *hPre, aclTensor *hcBeforeNorm, aclTensor *invRms,

@@ -29,22 +29,23 @@ namespace l0op {
 OP_TYPE_REGISTER(MhcPreCmhc);
 
 static const aclTensor *MhcPreCmhcAiCore(const aclTensor *x, const aclTensor *phi, const aclTensor *alpha,
-                                             const aclTensor *bias, int64_t hcMult, int64_t numIters, double hcEps,
+                                             const aclTensor *bias, const aclTensor *perm_mats,
+                                             int64_t hcMult, int64_t numIters, double hcEps,
                                              double normEps, bool needBackward,
                                              aclTensor *hin, aclTensor *hPost, aclTensor *hRes,
                                              aclTensor *hPre, aclTensor *hcBeforeNorm, aclTensor *invRms,
                                              aclTensor *sumOut, aclTensor *normOut,
                                              aclOpExecutor *executor)
 {
-    L0_DFX(MhcPreCmhcAiCore, x, phi, alpha, bias, hcMult, numIters, hcEps, normEps, needBackward,
+    L0_DFX(MhcPreCmhcAiCore, x, phi, alpha, bias, perm_mats, hcMult, numIters, hcEps, normEps, needBackward,
            hin, hPost, hRes, hPre, hcBeforeNorm, invRms, sumOut, normOut);
-    
+
     auto ret = ADD_TO_LAUNCHER_LIST_AICORE(
         MhcPreCmhc,
-        OP_INPUT(x, phi, alpha, bias),
+        OP_INPUT(x, phi, alpha, bias, perm_mats),
         OP_OUTPUT(hin, hPost, hRes, hPre, hcBeforeNorm, invRms, sumOut, normOut),
         OP_ATTR(hcMult, numIters,  static_cast<float>(hcEps),  static_cast<float>(normEps), needBackward));
-    
+
     OP_CHECK(ret == ACLNN_SUCCESS,
              OP_LOGE(ACLNN_ERR_INNER_NULLPTR, "MhcPreCmhc ADD_TO_LAUNCHER_LIST_AICORE failed."),
              return nullptr);
@@ -52,14 +53,15 @@ static const aclTensor *MhcPreCmhcAiCore(const aclTensor *x, const aclTensor *ph
 }
 
 const aclTensor *MhcPreCmhc(const aclTensor *x, const aclTensor *phi, const aclTensor *alpha,
-                                const aclTensor *bias, int64_t hcMult, int64_t numIters, double hcEps,
+                                const aclTensor *bias, const aclTensor *perm_mats,
+                                int64_t hcMult, int64_t numIters, double hcEps,
                                 double normEps, bool needBackward,
                                 aclTensor *hin, aclTensor *hPost, aclTensor *hRes,
                                 aclTensor *hPre, aclTensor *hcBeforeNorm, aclTensor *invRms,
                                 aclTensor *sumOut, aclTensor *normOut,
                                 aclOpExecutor *executor)
 {
-    return MhcPreCmhcAiCore(x, phi, alpha, bias, hcMult, numIters, hcEps, normEps, needBackward,
+    return MhcPreCmhcAiCore(x, phi, alpha, bias, perm_mats, hcMult, numIters, hcEps, normEps, needBackward,
                                 hin, hPost, hRes, hPre, hcBeforeNorm, invRms, sumOut, normOut, executor);
 }
 

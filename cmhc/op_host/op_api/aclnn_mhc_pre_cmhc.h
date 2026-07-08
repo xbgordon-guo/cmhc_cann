@@ -35,6 +35,7 @@ extern "C" {
  */
 aclnnStatus aclnnMhcPreCmhcGetWorkspaceSize(
     const aclTensor *x, const aclTensor *phi, const aclTensor *alpha, const aclTensor *bias,
+    const aclTensor *perm_mats,
     int64_t hcMult, int64_t numIters, double hcEps, double normEps, bool needBackward,
     aclTensor *hin, aclTensor *hPost, aclTensor *hRes,
     aclTensor *hPre, aclTensor *hcBeforeNorm, aclTensor *invRms,
