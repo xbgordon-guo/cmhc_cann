@@ -1,0 +1,63 @@
+{
+  "task": "cmhc",
+  "task_dir": "/home/y00889327/AscendOpGenAgent/cmhc",
+  "n_cases_total": 3,
+  "n_cases_valid": 3,
+  "geomean_speedup": 0.765255383315622,
+  "mean_speedup": 0.816070174331218,
+  "median_speedup": 0.9988238898243206,
+  "min_speedup": 0.44809420409865724,
+  "max_speedup": 1.0012924290706762,
+  "mean_ref_us": 10.058879813845259,
+  "median_ref_us": 1.1763350785340314,
+  "total_ref_us": 30.176639441535777,
+  "mean_asc_us": 21.484444115470023,
+  "median_asc_us": 1.177720207253886,
+  "total_asc_us": 64.45333234641006,
+  "total_speedup": 0.4681936269694915,
+  "warmup": 3,
+  "repeats": 1,
+  "seed": 0,
+  "device_id": 12,
+  "device_select_source": "auto",
+  "timing_method": "msprof.quick.Task_Duration",
+  "per_case": [
+    {
+      "case": 0,
+      "shape": "[1, 128, 4, 3584]",
+      "dtype": "bfloat16",
+      "ref_us": 1.1763350785340314,
+      "asc_us": 1.177720207253886,
+      "speedup": 0.9988238898243206,
+      "ref_error": null,
+      "asc_error": null,
+      "ref_prof_dir": "/tmp/msprof_quick_ref_cmhc_c0_r0/PROF_000001_20260707165143209_IEBONIDRRPQMREFB",
+      "asc_prof_dir": "/tmp/msprof_quick_asc_cmhc_c0_r0/PROF_000001_20260707165157999_MPCIRNKJNFEJMLLB"
+    },
+    {
+      "case": 1,
+      "shape": "[2, 256, 4, 3584]",
+      "dtype": "bfloat16",
+      "ref_us": 1.1708376963350786,
+      "asc_us": 1.1693264248704662,
+      "speedup": 1.0012924290706762,
+      "ref_error": null,
+      "asc_error": null,
+      "ref_prof_dir": "/tmp/msprof_quick_ref_cmhc_c1_r0/PROF_000001_20260707165213387_PBODAEQAHRBKMPHB",
+      "asc_prof_dir": "/tmp/msprof_quick_asc_cmhc_c1_r0/PROF_000001_20260707165229400_AGARPIMIHLOFNBNC"
+    },
+    {
+      "case": 2,
+      "shape": "[4, 512, 4, 3584]",
+      "dtype": "bfloat16",
+      "ref_us": 27.829466666666665,
+      "asc_us": 62.10628571428572,
+      "speedup": 0.44809420409865724,
+      "ref_error": null,
+      "asc_error": null,
+      "ref_prof_dir": "/tmp/msprof_quick_ref_cmhc_c2_r0/PROF_000001_20260707165244794_FCLMBFMNQQFOJGOA",
+      "asc_prof_dir": "/tmp/msprof_quick_asc_cmhc_c2_r0/PROF_000001_20260707165300956_CHFNMACEEKAPQIKA"
+    }
+  ],
+  "profiling_mode": "quick"
+}
