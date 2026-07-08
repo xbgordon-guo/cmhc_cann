@@ -95,7 +95,6 @@ static bool CheckShape(const aclTensor *x, const aclTensor *phi, const aclTensor
     int64_t seqLen = xShape.GetDim(1);
     int64_t n = xShape.GetDim(2);
     int64_t c = xShape.GetDim(3);
-    int64_t hcMix = n * n + 2 * n;
 
     if (hcMult != HCMULT_DEFAULT_VALUE) {
         OP_LOGE(ACLNN_ERR_PARAM_INVALID,
@@ -132,6 +131,7 @@ static bool CheckShape(const aclTensor *x, const aclTensor *phi, const aclTensor
                 "phi must be 2D (hcMix, n*c), but got dim = %ld.", phiShape.GetDimNum());
         return false;
     }
+    int64_t hcMix = phiShape.GetDim(0);
     if (phiShape.GetDim(0) != hcMix || phiShape.GetDim(1) != n * c) {
         OP_LOGE(ACLNN_ERR_PARAM_INVALID,
                 "phi shape must be (%ld, %ld), but got (%ld, %ld).",
