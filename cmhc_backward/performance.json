@@ -1,0 +1,63 @@
+{
+  "task": "cmhc_backward",
+  "task_dir": "/home/y00889327/cmhc_cann/cmhc_backward",
+  "n_cases_total": 3,
+  "n_cases_valid": 3,
+  "geomean_speedup": 2.6165613449696155,
+  "mean_speedup": 2.6397188462806405,
+  "median_speedup": 2.622297003907946,
+  "min_speedup": 2.2209232308447664,
+  "max_speedup": 3.075936304089209,
+  "mean_ref_us": 5.813809523809524,
+  "median_ref_us": 6.008571428571429,
+  "total_ref_us": 17.441428571428574,
+  "mean_asc_us": 2.254269005847953,
+  "median_asc_us": 2.3087719298245615,
+  "total_asc_us": 6.762807017543859,
+  "total_speedup": 2.5790220726663606,
+  "warmup": 3,
+  "repeats": 1,
+  "seed": 0,
+  "device_id": 1,
+  "device_select_source": "env",
+  "timing_method": "msprof.quick.Task_Duration",
+  "per_case": [
+    {
+      "case": 0,
+      "shape": "[1, 2, 64]",
+      "dtype": "float32",
+      "ref_us": 5.378571428571429,
+      "asc_us": 1.7485964912280703,
+      "speedup": 3.075936304089209,
+      "ref_error": null,
+      "asc_error": null,
+      "ref_prof_dir": "/tmp/msprof_quick_ref_cmhc_backward_c0_r0/PROF_000001_20260709143213132_MIDFBNEJKHGBIHKB",
+      "asc_prof_dir": "/tmp/msprof_quick_asc_cmhc_backward_c0_r0/PROF_000001_20260709143226041_ILBHGNMFQRPNQAMC"
+    },
+    {
+      "case": 1,
+      "shape": "[2, 3, 128]",
+      "dtype": "float16",
+      "ref_us": 6.008571428571429,
+      "asc_us": 2.705438596491228,
+      "speedup": 2.2209232308447664,
+      "ref_error": null,
+      "asc_error": null,
+      "ref_prof_dir": "/tmp/msprof_quick_ref_cmhc_backward_c1_r0/PROF_000001_20260709143239056_NLECJPMHBFRAEOQB",
+      "asc_prof_dir": "/tmp/msprof_quick_asc_cmhc_backward_c1_r0/PROF_000001_20260709143252920_BIJRQCHBARABAQCB"
+    },
+    {
+      "case": 2,
+      "shape": "[1, 4, 256]",
+      "dtype": "bfloat16",
+      "ref_us": 6.054285714285714,
+      "asc_us": 2.3087719298245615,
+      "speedup": 2.622297003907946,
+      "ref_error": null,
+      "asc_error": null,
+      "ref_prof_dir": "/tmp/msprof_quick_ref_cmhc_backward_c2_r0/PROF_000001_20260709143307480_LORDNBQPIDDDJRHA",
+      "asc_prof_dir": "/tmp/msprof_quick_asc_cmhc_backward_c2_r0/PROF_000001_20260709143322176_HEAIINIDCHMAODKC"
+    }
+  ],
+  "profiling_mode": "quick"
+}
