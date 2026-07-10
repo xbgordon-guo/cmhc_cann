@@ -36,7 +36,7 @@ static ge::graphStatus Tiling4MhcPreCmhcBackward(gert::TilingContext* context)
 
     if (Ops::Transformer::OpTiling::IsRegbaseSocVersion(context)) {
         OP_LOGD(context->GetNodeName(), "Using arch35 tiling for ASCEND950");
-        return TilingRegistry::GetInstance().DoTilingImpl(context);
+        return Ops::Transformer::OpTiling::TilingRegistry::GetInstance().DoTilingImpl(context);
     }
 
     return TilingMhcPreCmhcBackwardArch22(context);
