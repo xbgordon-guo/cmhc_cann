@@ -28,19 +28,6 @@
 using namespace AscendC;
 
 namespace {
-// kernel(__aicore__) 链接阶段无 libm, 标量 expf 不可用, 用多项式近似 (精度 ~1e-5, 足够 softmax)
-static __aicore__ inline float FastExpf(float x) {
-    if (x < -80.0f) { return 0.0f; }
-    if (x > 80.0f) { return 1e35f; }
-    float t = x * 1.44269504f;
-    int32_t e = static_cast<int32_t>(t);
-    if (t < 0.0f && t != static_cast<float>(e)) { e--; }
-    float m = t - static_cast<float>(e);
-    float p = 1.0f + m * (0.69314706f + m * (0.24022639f + m * (0.05550410f + m * 0.00961813f)));
-    union { float f; int32_t i; } u;
-    u.i = (e + 127) << 23;
-    return u.f * p;
-}
 constexpr int32_t BYTE_SIZE_PER_BLOCK = 32;
 constexpr int32_t ELEMENTS_SIZE_PER_BLOCK = BYTE_SIZE_PER_BLOCK / sizeof(float);
 constexpr int32_t BYTE_SIZE_PER_REPEAT = 256;
@@ -466,7 +453,7 @@ __aicore__ inline void MhcPreCmhcGradKernel<TYPE_X, T, DETERMINISTIC>::SoftmaxPe
         float es = 0;
         for (int64_t k = 0; k < nPermEffective; ++k) {
             float v = hatLocal.GetValue(r * (hcMix_) + PRE_POST_NUM * n_ + k);
-            float ev = FastExpf(v - mx);
+            float ev = exp(v - mx);
             gradHResTempLocal2_.SetValue(r * nPermEffective + k, ev);
             es += ev;
         }
