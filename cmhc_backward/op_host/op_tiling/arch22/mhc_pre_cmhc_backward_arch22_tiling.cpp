@@ -78,7 +78,8 @@ static ge::graphStatus ShapeVerify(gert::TilingContext *context, int64_t batchSi
 
     // Verify grad_h_post: (B, S, N)
     auto gradHPostShapePtr = context->GetInputShape(GRAD_H_POST_IDX);
-    OP_CHECK_IF(gradHPostShapePtr == nullptr, return ge::GRAPH_FAILED);
+    OP_CHECK_IF(gradHPostShapePtr == nullptr,
+                OP_LOGE(opName, "gradHPostShapePtr is null"), return ge::GRAPH_FAILED);
     auto gradHPostShape = gradHPostShapePtr->GetStorageShape();
     OP_CHECK_IF(gradHPostShape.GetDimNum() != 3 ||
                     gradHPostShape.GetDim(0) != batchSize || gradHPostShape.GetDim(1) != seqLength ||
@@ -87,7 +88,8 @@ static ge::graphStatus ShapeVerify(gert::TilingContext *context, int64_t batchSi
 
     // Verify grad_h_res: (B, S, N, N)
     auto gradHResShapePtr = context->GetInputShape(GRAD_H_RES_IDX);
-    OP_CHECK_IF(gradHResShapePtr == nullptr, return ge::GRAPH_FAILED);
+    OP_CHECK_IF(gradHResShapePtr == nullptr,
+                OP_LOGE(opName, "gradHResShapePtr is null"), return ge::GRAPH_FAILED);
     auto gradHResShape = gradHResShapePtr->GetStorageShape();
     OP_CHECK_IF(gradHResShape.GetDimNum() != 4 ||
                     gradHResShape.GetDim(0) != batchSize || gradHResShape.GetDim(1) != seqLength ||
@@ -113,7 +115,8 @@ ge::graphStatus TilingMhcPreCmhcBackwardArch22(gert::TilingContext* context)
 
     // Get input shapes
     auto xShapePtr = context->GetInputShape(INPUT_X_IDX);
-    OP_CHECK_IF(xShapePtr == nullptr, return ge::GRAPH_FAILED);
+    OP_CHECK_IF(xShapePtr == nullptr,
+                OP_LOGE(context->GetNodeName(), "xShapePtr is null"), return ge::GRAPH_FAILED);
     auto xShape = xShapePtr->GetStorageShape();
     int64_t batchSize = xShape.GetDim(BATCH_SIZE_DIM_IDX);
     int64_t seqLength = xShape.GetDim(SEQ_LENGTH_DIM_IDX);
@@ -158,7 +161,8 @@ ge::graphStatus TilingMhcPreCmhcBackwardArch22(gert::TilingContext* context)
 
     // Shape verification
     auto ret = ShapeVerify(context, batchSize, seqLength, n, c);
-    OP_CHECK_IF(ret != ge::GRAPH_SUCCESS, return ret);
+    OP_CHECK_IF(ret != ge::GRAPH_SUCCESS,
+                OP_LOGE(context->GetNodeName(), "Shape verification failed"), return ret);
 
     // Tiling computation
     int64_t c0Val = 16; // base C0 for float alignment on 910B
@@ -190,8 +194,8 @@ ge::graphStatus TilingMhcPreCmhcBackwardArch22(gert::TilingContext* context)
     int64_t mm2K = tileSize * 2; // smaller K dim
     int64_t mm2N = nC;
 
-    TCubeTiling mm1TilingData;
-    TCubeTiling mm2TilingData;
+    AscendC::tiling::TCubeTiling mm1TilingData;
+    AscendC::tiling::TCubeTiling mm2TilingData;
 
     // Fill tiling data
     MhcPreCmhcBackwardArch22TilingData tilingData;

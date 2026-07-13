@@ -443,26 +443,30 @@ __aicore__ inline void MhcPreCmhcGradKernel<TYPE_X, T, DETERMINISTIC>::SoftmaxPe
 
     // Softmax forward: exp(x - max) / sum(exp(x - max))
     for (int64_t r = 0; r < tileTaskCount; ++r) {
-        // Find max
-        float mx = hatLocal.GetValue(r * (hcMix_) + PRE_POST_NUM * n_);
+        int64_t logitsOff = r * (hcMix_) + PRE_POST_NUM * n_;
+        // Find max (scalar)
+        float mx = hatLocal.GetValue(logitsOff);
         for (int64_t k = 1; k < nPermEffective; ++k) {
-            float v = hatLocal.GetValue(r * (hcMix_) + PRE_POST_NUM * n_ + k);
+            float v = hatLocal.GetValue(logitsOff + k);
             if (v > mx) mx = v;
         }
-        // Exp(x - max) and sum
+        // Copy logits to contiguous output buffer, then vector ops
+        LocalTensor<T> logitsOut = gradHResTempLocal2_[r * nPermEffective];
+        LocalTensor<T> logitsSrc = hatLocal[logitsOff];
+        DataCopy(logitsOut, logitsSrc, nPermEffective * static_cast<uint32_t>(sizeof(T)));
+        PipeBarrier<PIPE_V>();
+        // x = x - max (use Adds with negative for scalar subtract)
+        Adds(logitsOut, logitsOut, static_cast<T>(-mx), nPermEffective);
+        // exp(x)
+        Exp(logitsOut, logitsOut, nPermEffective);
+        // Sum (scalar)
         float es = 0;
         for (int64_t k = 0; k < nPermEffective; ++k) {
-            float v = hatLocal.GetValue(r * (hcMix_) + PRE_POST_NUM * n_ + k);
-            float ev = exp(v - mx);
-            gradHResTempLocal2_.SetValue(r * nPermEffective + k, ev);
-            es += ev;
+            es += logitsOut.GetValue(k);
         }
-        // Normalize (softmax output = res_coeff)
+        // Normalize: softmax output = res_coeff
         float ies = (es > 0) ? (1.0f / es) : 1.0f;
-        for (int64_t k = 0; k < nPermEffective; ++k) {
-            float v = gradHResTempLocal2_.GetValue(r * nPermEffective + k);
-            gradHResTempLocal2_.SetValue(r * nPermEffective + k, v * ies);
-        }
+        Muls(logitsOut, logitsOut, static_cast<T>(ies), nPermEffective);
     }
     PipeBarrier<PIPE_V>();
 
