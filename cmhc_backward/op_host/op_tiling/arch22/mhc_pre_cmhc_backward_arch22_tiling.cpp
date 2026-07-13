@@ -18,8 +18,8 @@
 #include "tiling/platform/platform_ascendc.h"
 #include "mhc_pre_cmhc_backward_arch22_tiling.h"
 #include "log/log.h"
-#include "cmhc/backward/op_kernel/arch22/mhc_pre_cmhc_backward_data_arch22.h"
-#include "cmhc/backward/op_kernel/arch22/mhc_pre_cmhc_backward_key_arch22.h"
+#include "../../../op_kernel/arch22/mhc_pre_cmhc_backward_data_arch22.h"
+#include "../../../op_kernel/arch22/mhc_pre_cmhc_backward_key_arch22.h"
 
 #define CHECK_NULLPTR(ptr) \
     if (ptr == nullptr) {  \
