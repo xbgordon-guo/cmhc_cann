@@ -13,6 +13,7 @@
  * \brief MhcPreCmhcBackward operator tiling implementation (arch22 / 910B)
  */
 
+#include <cstdio>
 #include "register/op_def_registry.h"
 #include "tiling/tiling_api.h"
 #include "tiling/platform/platform_ascendc.h"
@@ -259,6 +260,22 @@ ge::graphStatus TilingMhcPreCmhcBackwardArch22(gert::TilingContext* context)
     int64_t workspaceSize = wsElements * static_cast<int64_t>(sizeof(float)) + 16 * 1024 * 1024;
     size_t* workspaces = context->GetWorkspaceSizes(1);
     workspaces[0] = static_cast<size_t>(workspaceSize);
+
+    // === GD debug: print tiling params + kernel UB buffer demand to locate AIV MTE overflow ===
+    int64_t bsTotal = batchSize * seqLength;
+    int64_t inputXQbytes = tileSize * n * c0 * sizeof(float) / 4;        // inputXInQueue per-tensor bytes (kernel L275)
+    int64_t hat2NeedBytes = tileSize * hcMix * sizeof(float);            // hat2LocalTemp DataCopyPad write (kernel L569)
+    int64_t onceTask = tileSize / 8;                                     // INNER_SPILT_NUM=8
+    int64_t ubRemainBytes = ((tileSize + 7) / 8) * 64 * sizeof(float) +
+                            ((tileSize * n + 7) / 8) * 64 * sizeof(float) +
+                            onceTask * n * c0 * sizeof(float) * 2 + onceTask * c0 * sizeof(float);
+    int64_t dhatNeedBytes = tileSize * hcMix * 2 * sizeof(float);        // dhatLocal_ in tempBuf_ (kernel L340)
+    fprintf(stderr, "GD_TUNING_BWD: BS=%ld n=%ld c=%ld c0=%ld hcMix=%ld nPerm=%ld tileSize=%ld aivNum=%ld ubSize=%lu\n",
+            bsTotal, n, c, c0, hcMix, nPerm, tileSize, aivNumForKernel, ubSize);
+    fprintf(stderr, "GD_TUNING_BWD: inputXInQueue_bytes=%ld hat2LocalTemp_need=%ld (need>bytes => inputXInQueue UB overflow)\n",
+            inputXQbytes, hat2NeedBytes);
+    fprintf(stderr, "GD_TUNING_BWD: tempBuf_ubRemain=%ld dhatLocal_need=%ld (need>remain => tempBuf UB overflow)\n",
+            ubRemainBytes, dhatNeedBytes);
 
     OP_LOGD(context->GetNodeName(), "MhcPreCmhcBackward arch22 tiling done.");
     return ge::GRAPH_SUCCESS;
