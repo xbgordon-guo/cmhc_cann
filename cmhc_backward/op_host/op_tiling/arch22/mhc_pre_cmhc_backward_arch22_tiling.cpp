@@ -197,6 +197,36 @@ ge::graphStatus TilingMhcPreCmhcBackwardArch22(gert::TilingContext* context)
     AscendC::tiling::TCubeTiling mm1TilingData;
     AscendC::tiling::TCubeTiling mm2TilingData;
 
+    // Fill MatMul tiling — required by mm1_.Init/mm2_.Init in the kernel entry.
+    // Without this the TCubeTiling fields stay zero and the cube-path MTE
+    // computes out-of-range GM addresses (aicore exception, errCode 0x26).
+    auto mmDtype = matmul_tiling::DataType::DT_FLOAT;
+    // MM1: grad_H2[tileSize*2, hcMix] @ phi[hcMix, n*c] -> grad_x_cube[tileSize*2, n*c]
+    matmul_tiling::MatmulApiTiling mm1ApiTiling(ascendcPlatform);
+    mm1ApiTiling.SetAType(matmul_tiling::TPosition::GM, matmul_tiling::CubeFormat::ND, mmDtype);
+    mm1ApiTiling.SetBType(matmul_tiling::TPosition::GM, matmul_tiling::CubeFormat::ND, mmDtype);
+    mm1ApiTiling.SetCType(matmul_tiling::TPosition::GM, matmul_tiling::CubeFormat::ND, mmDtype);
+    mm1ApiTiling.SetOrgShape(mm1M, mm1N, mm1K);
+    mm1ApiTiling.SetShape(mm1M, mm1N, mm1K);
+    mm1ApiTiling.SetBias(false);
+    mm1ApiTiling.SetBufferSpace(-1, -1, -1);
+    OP_CHECK_IF(mm1ApiTiling.GetTiling(mm1TilingData) == -1,
+                OP_LOGE(context->GetNodeName(), "mm1 GetTiling failed, M=%ld, N=%ld, K=%ld", mm1M, mm1N, mm1K),
+                return ge::GRAPH_FAILED);
+    // MM2: grad_H2^T[hcMix, tileSize*2] @ x_workspace[tileSize*2, n*c] -> grad_phi[hcMix, n*c]
+    // A transposed (kernel: mm2_.SetTensorA(..., true); A1Type isTranspose=true)
+    matmul_tiling::MatmulApiTiling mm2ApiTiling(ascendcPlatform);
+    mm2ApiTiling.SetAType(matmul_tiling::TPosition::GM, matmul_tiling::CubeFormat::ND, mmDtype, true);
+    mm2ApiTiling.SetBType(matmul_tiling::TPosition::GM, matmul_tiling::CubeFormat::ND, mmDtype);
+    mm2ApiTiling.SetCType(matmul_tiling::TPosition::GM, matmul_tiling::CubeFormat::ND, mmDtype);
+    mm2ApiTiling.SetOrgShape(mm2M, mm2N, mm2K);
+    mm2ApiTiling.SetShape(mm2M, mm2N, mm2K);
+    mm2ApiTiling.SetBias(false);
+    mm2ApiTiling.SetBufferSpace(-1, -1, -1);
+    OP_CHECK_IF(mm2ApiTiling.GetTiling(mm2TilingData) == -1,
+                OP_LOGE(context->GetNodeName(), "mm2 GetTiling failed, M=%ld, N=%ld, K=%ld", mm2M, mm2N, mm2K),
+                return ge::GRAPH_FAILED);
+
     // Fill tiling data
     MhcPreCmhcBackwardArch22TilingData tilingData;
     tilingData.batchSize = batchSize;
@@ -223,7 +253,12 @@ ge::graphStatus TilingMhcPreCmhcBackwardArch22(gert::TilingContext* context)
     context->SetTilingKey(DEFAULT_KEY);
     context->SetBlockDim(aivNumForKernel);
 
-    // NOTE: Workspace size and SetTilingData will be set by PostTiling
+    // Workspace must cover InitGM offsets: gradH2[BS*hcMix] + xWorkspace[BS*n*c]
+    // + gradXCube[BS*n*c] (floats). deterministic path adds aicNum*hcMix*n*c.
+    int64_t wsElements = batchSize * seqLength * (hcMix + 2 * nC);
+    int64_t workspaceSize = wsElements * static_cast<int64_t>(sizeof(float)) + 16 * 1024 * 1024;
+    size_t* workspaces = context->GetWorkspaceSizes(1);
+    workspaces[0] = static_cast<size_t>(workspaceSize);
 
     OP_LOGD(context->GetNodeName(), "MhcPreCmhcBackward arch22 tiling done.");
     return ge::GRAPH_SUCCESS;
