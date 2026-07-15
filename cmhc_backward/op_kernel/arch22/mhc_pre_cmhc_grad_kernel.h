@@ -267,12 +267,12 @@ private:
     {
         if ASCEND_IS_AIV {
             pipe_->InitBuffer(fusedGradHPre2AndGradHPost2Buf_, tileCoreBS_ * n_ * 2 * sizeof(float));
-            pipe_->InitBuffer(gradRsqrtBuf_, tileCoreBS_ * (n_ * n_ + 2 * n_) * sizeof(float) * 2);
-            pipe_->InitBuffer(gradBiasBuf_, 2 * 2 * tileCoreBS_ * ((n_ * n_ + 2 * n_)) * sizeof(float));
+            pipe_->InitBuffer(gradRsqrtBuf_, tileCoreBS_ * (hcMix_) * sizeof(float) * 2);
+            pipe_->InitBuffer(gradBiasBuf_, 2 * 2 * tileCoreBS_ * (hcMix_) * sizeof(float));
             pipe_->InitBuffer(onesBuf_, tileCoreBS_ * n_ * 2 * sizeof(float));
-            pipe_->InitBuffer(hcBaseBuf_, (n_ * n_ + 2 * n_) * sizeof(float));
+            pipe_->InitBuffer(hcBaseBuf_, (hcMix_) * sizeof(float));
             pipe_->InitBuffer(ScaleBuf_, BYTE_SIZE_PER_BLOCK * 2);
-            pipe_->InitBuffer(inputXInQueue, 2, tileCoreBS_ * n_ * c0_ * sizeof(float) / 4);
+            pipe_->InitBuffer(inputXInQueue, 2, tileCoreBS_ * (hcMix_ + 2 * n_ + 1) * sizeof(float));
             pipe_->InitBuffer(inputGradQueue, 1, tileCoreBS_ * n_ * ELEMENTS_SIZE_PER_BLOCK * sizeof(float));
             // Removed SKInQueue — no Sinkhorn
             pipe_->InitBuffer(OutQueue, 2, tileCoreBS_ * n_ * c0_ * sizeof(float) / 8);
@@ -282,6 +282,10 @@ private:
                 Ops::Base::CeilDiv(tileCoreBS_ * n_, static_cast<int64_t>(ELEMENTS_SIZE_PER_BLOCK)) *
                     ELEMENTS_SIZE_PER_REPEAT * sizeof(float) +
                 onceTask_ * n_ * c0_ * sizeof(float) * 2 + onceTask_ * c0_ * sizeof(float);
+            auto ubSizeRemainHc = tileCoreBS_ * hcMix_ * 8 * sizeof(float);
+            if (ubSizeRemainHc > ubSizeRemain) {
+                ubSizeRemain = ubSizeRemainHc;
+            }
 
             pipe_->InitBuffer(tempBuf_, ubSizeRemain);
 
@@ -354,7 +358,7 @@ private:
             rsqrtTempLocal_ = tempBuf_.GetWithOffset<T>(tileCoreBS_ * (hcMix_), offset);
 
             Duplicate(onesLocal_, 1.f, tileCoreBS_ * n_ * 2);
-            Duplicate(dBiasLocal_, 0.f, 2 * 2 * tileCoreBS_ * (2 * n_ + n_ * n_));
+            Duplicate(dBiasLocal_, 0.f, 2 * 2 * tileCoreBS_ * (hcMix_));
         }
     }
 
