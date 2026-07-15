@@ -80,7 +80,12 @@ static ge::graphStatus InferShapeForCmhc(gert::InferShapeContext *context)
     const bool *needBackwardAttr = attrs->GetAttrPointer<bool>(ATTR_NEED_BACKWARD);
     const int64_t numIters = numItersAttr == nullptr ? DEFAULT_NUM_ITERS : *numItersAttr;
     const bool needBackward = needBackwardAttr == nullptr ? true : *needBackwardAttr;
-    const int64_t hcMix = hcMult * hcMult + 2 * hcMult;
+    // cmhc: hcMix = nPerm + 2*N where nPerm = N! (Birkhoff-von Neumann permutations).
+    int64_t nPerm = 1;
+    for (int64_t i = 2; i <= hcMult; ++i) {
+        nPerm *= i;
+    }
+    const int64_t hcMix = nPerm + 2 * hcMult;
 
     gert::Shape *hinShape = context->GetOutputShape(OUTPUT_HIN);
     gert::Shape *hPostShape = context->GetOutputShape(OUTPUT_HPOST);
@@ -101,7 +106,7 @@ static ge::graphStatus InferShapeForCmhc(gert::InferShapeContext *context)
 
     SetShape(hinShape, {batch, seqLen, hiddenDim});
     SetShape(hPostShape, {batch, seqLen, hcMult});
-    SetShape(hResShape, {batch, seqLen, hcMult * hcMult});
+    SetShape(hResShape, {batch, seqLen, hcMult, hcMult});
 
     if (needBackward) {
         SetShape(hPreShape, {batch, seqLen, hcMult});
