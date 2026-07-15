@@ -595,24 +595,24 @@ __aicore__ inline void MhcPreCmhcGradKernel<TYPE_X, T, DETERMINISTIC>::ComputeGr
     PipeBarrier<PIPE_V>();
 
     // GRAD_HAT_RSQRT
-    Mul(hat2Scale, scaleLocal_, hat2LocalTemp, ELEMENTS_SIZE_PER_REPEAT, tileRepeatTimes_, {3, 0, 3, 24, 0, 24});
+    Mul(hat2Scale, scaleLocal_, hat2LocalTemp, ELEMENTS_SIZE_PER_REPEAT, tileRepeatTimes_, {3, 0, 3, 32, 0, 32});
     Mul(hat2Scale[8], scaleLocal_[8], hat2LocalTemp[8], ELEMENTS_SIZE_PER_REPEAT, tileRepeatTimes_,
-        {3, 0, 3, 24, 0, 24});
+        {3, 0, 3, 32, 0, 32});
     Mul(hat2Scale[16], scaleLocal_[8], hat2LocalTemp[16], ELEMENTS_SIZE_PER_REPEAT, tileRepeatTimes_,
-        {3, 0, 3, 24, 0, 24});
+        {3, 0, 3, 32, 0, 32});
     PipeBarrier<PIPE_V>();
     Mul(hatLocal, hat2Scale, rsqrtbrcbLocal_, (hcMix_) * tileTaskCount);
     PipeBarrier<PIPE_V>();
 
-    Add(hatLocal, hcBaseLocal_, hatLocal, ELEMENTS_SIZE_PER_REPEAT, tileRepeatTimes_, {3, 0, 3, 24, 0, 24});
-    Add(hatLocal[8], hcBaseLocal_[8], hatLocal[8], ELEMENTS_SIZE_PER_REPEAT, tileRepeatTimes_, {3, 0, 3, 24, 0, 24});
-    Add(hatLocal[16], hcBaseLocal_[16], hatLocal[16], ELEMENTS_SIZE_PER_REPEAT, tileRepeatTimes_, {3, 0, 3, 24, 0, 24});
+    Add(hatLocal, hcBaseLocal_, hatLocal, ELEMENTS_SIZE_PER_REPEAT, tileRepeatTimes_, {3, 0, 3, 32, 0, 32});
+    Add(hatLocal[8], hcBaseLocal_[8], hatLocal[8], ELEMENTS_SIZE_PER_REPEAT, tileRepeatTimes_, {3, 0, 3, 32, 0, 32});
+    Add(hatLocal[16], hcBaseLocal_[16], hatLocal[16], ELEMENTS_SIZE_PER_REPEAT, tileRepeatTimes_, {3, 0, 3, 32, 0, 32});
     PipeBarrier<PIPE_V>();
 
     auto hatLocalTemp = dhatBeforeNormLocal;
 
     // Forward pre/post sigmoid
-    Muls(hatLocalTemp, hatLocal, float(-1), ELEMENTS_SIZE_PER_REPEAT, tileRepeatTimes_, {1, 3, 8, 24});
+    Muls(hatLocalTemp, hatLocal, float(-1), ELEMENTS_SIZE_PER_REPEAT, tileRepeatTimes_, {1, 3, 8, 32});
     PipeBarrier<PIPE_V>();
 
     Exp(hatLocal, hatLocalTemp, (2 * n_) * tileTaskCount);
@@ -629,7 +629,7 @@ __aicore__ inline void MhcPreCmhcGradKernel<TYPE_X, T, DETERMINISTIC>::ComputeGr
     Sub(hatLocalTemp, hatLocal, hatLocalTemp, ELEMENTS_SIZE_PER_REPEAT, tileRepeatTimes_, {1, 1, 1, 8, 8, 8});
     PipeBarrier<PIPE_V>();
 
-    Mul(dhatLocal_, dPrePostTempLocal_, hatLocalTemp, ELEMENTS_SIZE_PER_REPEAT, tileRepeatTimes_, {3, 1, 1, 24, 8, 8});
+    Mul(dhatLocal_, dPrePostTempLocal_, hatLocalTemp, ELEMENTS_SIZE_PER_REPEAT, tileRepeatTimes_, {3, 1, 1, 32, 8, 8});
     PipeBarrier<PIPE_V>();
     // dRsqrt = dhatLocal_ * beforenorm
     Mul(gradRsqrtLocal_, dhatLocal_, hat2Scale, (hcMix_) * tileTaskCount);
@@ -665,11 +665,11 @@ __aicore__ inline void MhcPreCmhcGradKernel<TYPE_X, T, DETERMINISTIC>::ComputeGr
     auto dhat2Local = OutQueue.AllocTensor<float>();
     inputXInQueue.FreeTensor(gradHPostLocal_);
 
-    Mul(dhat2Local, scaleLocal_, dhatBeforeNormLocal, ELEMENTS_SIZE_PER_REPEAT, tileRepeatTimes_, {3, 0, 3, 24, 0, 24});
+    Mul(dhat2Local, scaleLocal_, dhatBeforeNormLocal, ELEMENTS_SIZE_PER_REPEAT, tileRepeatTimes_, {3, 0, 3, 32, 0, 32});
     Mul(dhat2Local[8], scaleLocal_[8], dhatBeforeNormLocal[8], ELEMENTS_SIZE_PER_REPEAT, tileRepeatTimes_,
-        {3, 0, 3, 24, 0, 24});
+        {3, 0, 3, 32, 0, 32});
     Mul(dhat2Local[16], scaleLocal_[8], dhatBeforeNormLocal[16], ELEMENTS_SIZE_PER_REPEAT, tileRepeatTimes_,
-        {3, 0, 3, 24, 0, 24});
+        {3, 0, 3, 32, 0, 32});
 
     OutQueue.EnQue(dhat2Local);
     dhat2Local = OutQueue.DeQue<T>();
@@ -928,7 +928,7 @@ __aicore__ inline void MhcPreCmhcGradKernel<TYPE_X, T, DETERMINISTIC>::ComputeSc
     auto dScaleLocal = dBiasLocal[tileCoreBS_ * (hcMix_)];
 
     Add(dScaleLocal[8], dScaleLocal[8], dScaleLocal[16], ELEMENTS_SIZE_PER_REPEAT, tileRepeatTimes_,
-        {3, 3, 3, 24, 24, 24});
+        {3, 3, 3, 32, 32, 32});
 
     PipeBarrier<PIPE_V>();
 
