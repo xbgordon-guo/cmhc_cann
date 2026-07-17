@@ -1,0 +1,21 @@
+Device_id,Level,API Name,Time(us),Count,Avg(us),Min(us),Max(us),Variance
+host,acl,MhcPreSinkhorn_Tiling,135.343,2,67.672,0.241,135.102,4546.872
+host,acl,aclnnMhcPreSinkhorn,589.362,1,589.362,589.362,589.362,0
+host,acl,aclnnMhcPreSinkhornGetWorkspaceSize,447942.994,1,447942.994,447942.994,447942.994,0
+host,acl,aclrtBinaryLoadFromData,80.315,1,80.315,80.315,80.315,0
+host,acl,aclrtCreateContext,2315.523,1,2315.523,2315.523,2315.523,0
+host,acl,aclrtCreateStream,361.979,1,361.979,361.979,361.979,0
+host,acl,aclrtCtxGetSysParamOpt,12.691,4,3.173,0.407,8.592,10.855
+host,acl,aclrtDestroyContext,1331.979,1,1331.979,1331.979,1331.979,0
+host,acl,aclrtDestroyStream,539.439,1,539.439,539.439,539.439,0
+host,acl,aclrtFree,943.034,13,72.541,0.769,924.131,60435.741
+host,acl,aclrtGetHardwareSyncAddr,6.114,1,6.114,6.114,6.114,0
+host,acl,aclrtGetResInCurrentThread,16.056,2,8.028,0.251,15.805,60.482
+host,acl,aclrtGetStreamAttribute,2.737,1,2.737,2.737,2.737,0
+host,acl,aclrtLaunchKernelWithHostArgs,182.824,1,182.824,182.824,182.824,0
+host,acl,aclrtMalloc,237.894,13,18.3,1.055,205.349,2931.491
+host,acl,aclrtMemcpy,171.377,7,24.482,7.088,76.968,555.599
+host,acl,aclrtResetDevice,370058.87,1,370058.87,370058.87,370058.87,0
+host,acl,aclrtSetCurrentContext,1.867,1,1.867,1.867,1.867,0
+host,acl,aclrtSynchronizeStream,83.904,1,83.904,83.904,83.904,0
+host,node,launch,394.072,1,394.072,394.072,394.072,0
